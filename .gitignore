@@ -1,12 +1,39 @@
+# OS / editor
 .DS_Store
+.vscode/
+.idea/
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
 
+# Virtual environments
+.venv/
 venv/
+env/
+ENV/
 
+# Local environment files
+.env
+.env.*
+
+# Application data
 ad_intelligence.db
+*.db
 reports/
 
+# Generated artifacts and debug captures
+*.log
+*.out
+playwright/.auth/
 google_ads_not_found.png
 google_advertiser_page.log.png
 google_error.png
