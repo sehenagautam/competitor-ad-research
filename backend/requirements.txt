@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+playwright
+requests
+python-dotenv
+apscheduler
+pydantic
+pydantic-settings
+rapidocr_onnxruntime
+numpy
+Pillow
+reportlab

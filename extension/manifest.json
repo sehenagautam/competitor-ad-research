@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Ad Research Collector",
+  "version": "1.0",
+  "description": "Capture competitor ads from Meta, TikTok, and Google.",
+  "permissions": ["activeTab", "storage"],
+  "host_permissions": ["http://localhost:8000/*"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.facebook.com/ads/library/*",
+        "*://ads.tiktok.com/business/creativecenter/*"
+      ],
+      "js": ["content.js"]
+    }
+  ]
+}

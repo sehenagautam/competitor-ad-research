@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ad Intelligence Dashboard</title>
+    <style>
+        :root {
+            --bg: #f3efe7;
+            --panel: #fffdf8;
+            --ink: #1f2933;
+            --muted: #6b7280;
+            --line: #ddd5c7;
+            --accent: #b45309;
+            --accent-dark: #7c2d12;
+        }
+        body {
+            margin: 0;
+            font-family: Georgia, "Times New Roman", serif;
+            background: linear-gradient(180deg, #f7f1e7 0%, #efe7db 100%);
+            color: var(--ink);
+        }
+        .wrap {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 28px;
+        }
+        h1 {
+            margin: 0 0 10px;
+            font-size: 40px;
+        }
+        .subtitle {
+            color: var(--muted);
+            margin-bottom: 22px;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: 2fr 1fr auto auto;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        input, select, button {
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            font-size: 15px;
+            background: var(--panel);
+        }
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button.secondary {
+            background: #374151;
+        }
+        .summary {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
+        }
+        .chip {
+            background: rgba(180, 83, 9, 0.08);
+            color: var(--accent-dark);
+            border: 1px solid rgba(180, 83, 9, 0.18);
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+        .status {
+            margin-bottom: 16px;
+            color: var(--accent-dark);
+            min-height: 20px;
+        }
+        .cards {
+            display: grid;
+            gap: 16px;
+        }
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 18px;
+            box-shadow: 0 10px 30px rgba(120, 84, 35, 0.06);
+        }
+        .card-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: flex-start;
+        }
+        .platform {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .platform.meta { background: #e7f3ff; color: #1877f2; }
+        .platform.tiktok { background: #111827; color: #fff; }
+        .platform.google { background: #fce8e6; color: #d93025; }
+        .headline {
+            margin: 10px 0 8px;
+            font-size: 26px;
+            line-height: 1.2;
+        }
+        .snippet {
+            color: #374151;
+            margin: 0 0 14px;
+        }
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px 16px;
+            margin-top: 14px;
+        }
+        .meta-item {
+            border-top: 1px solid #eee5d8;
+            padding-top: 8px;
+            min-height: 42px;
+        }
+        .label {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+            margin-bottom: 4px;
+        }
+        .value {
+            font-size: 14px;
+            word-break: break-word;
+        }
+        .links {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+        .links a {
+            color: var(--accent-dark);
+            text-decoration: none;
+            font-size: 14px;
+        }
+        .empty {
+            padding: 24px;
+            border: 1px dashed var(--line);
+            border-radius: 18px;
+            background: rgba(255,255,255,0.6);
+            color: var(--muted);
+        }
+        @media (max-width: 920px) {
+            .controls {
+                grid-template-columns: 1fr;
+            }
+            .card-top {
+                flex-direction: column;
+            }
+            .headline {
+                font-size: 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <h1>Competitor Ad Intelligence</h1>
+        <div class="subtitle">Type a product, or search a Facebook page with <code>page: Nike</code>, then press Enter.</div>
+
+        <div class="controls">
+            <input type="text" id="search" placeholder="Try perfume, tactical pant, or page: Nike">
+            <select id="platformFilter" onchange="filterAds()">
+                <option value="">All Platforms</option>
+                <option value="Meta">Meta</option>
+                <option value="TikTok">TikTok</option>
+                <option value="Google">Google</option>
+            </select>
+            <button onclick="runSearch()">Search Ads</button>
+            <button class="secondary" onclick="exportPdf()">Export PDF</button>
+        </div>
+
+        <div class="status" id="status"></div>
+        <div class="summary" id="summary"></div>
+        <div class="cards" id="adsBody"></div>
+    </div>
+
+    <script>
+        let allAds = [];
+        let currentQuery = "";
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;");
+        }
+
+        function formatDate(value) {
+            if (!value) return "N/A";
+            return new Date(value).toLocaleString();
+        }
+
+        function metaItem(label, value) {
+            if (!value) return "";
+            return `
+                <div class="meta-item">
+                    <span class="label">${escapeHtml(label)}</span>
+                    <span class="value">${escapeHtml(value)}</span>
+                </div>
+            `;
+        }
+
+        function renderSummary(ads) {
+            const counts = ads.reduce((acc, ad) => {
+                acc.total += 1;
+                acc[ad.platform] = (acc[ad.platform] || 0) + 1;
+                return acc;
+            }, { total: 0 });
+
+            const chips = [
+                `<div class="chip">Total Ads: ${counts.total || 0}</div>`,
+                `<div class="chip">Meta: ${counts.Meta || 0}</div>`,
+                `<div class="chip">TikTok: ${counts.TikTok || 0}</div>`,
+                `<div class="chip">Google: ${counts.Google || 0}</div>`
+            ];
+            if (currentQuery) {
+                chips.unshift(`<div class="chip">Query: ${escapeHtml(currentQuery)}</div>`);
+            }
+            document.getElementById("summary").innerHTML = chips.join("");
+        }
+
+        function renderAds(ads) {
+            renderSummary(ads);
+            const body = document.getElementById("adsBody");
+
+            if (!ads.length) {
+                body.innerHTML = `<div class="empty">No ads match the current filters.</div>`;
+                return;
+            }
+
+            body.innerHTML = ads.map(ad => `
+                <article class="card">
+                    <div class="card-top">
+                        <div>
+                            <span class="platform ${escapeHtml((ad.platform || '').toLowerCase())}">${escapeHtml(ad.platform || 'Unknown')}</span>
+                            <h2 class="headline">${escapeHtml(ad.headline || 'Untitled Ad')}</h2>
+                            <p class="snippet">${escapeHtml(ad.content_snippet || ad.content || 'No content snippet available.')}</p>
+                        </div>
+                        <div class="meta-item">
+                            <span class="label">First Seen</span>
+                            <span class="value">${escapeHtml(formatDate(ad.first_seen))}</span>
+                        </div>
+                    </div>
+
+                    <div class="meta-grid">
+                        ${metaItem("Advertiser", ad.advertiser_name)}
+                        ${metaItem("Brand", ad.brand_name)}
+                        ${metaItem("Page", ad.page_name)}
+                        ${metaItem("Status", ad.status)}
+                        ${metaItem("Category", ad.category)}
+                        ${metaItem("Objective", ad.objective)}
+                        ${metaItem("Format", ad.ad_format)}
+                        ${metaItem("Platforms", ad.platforms)}
+                        ${metaItem("Start Date", formatDate(ad.start_date))}
+                        ${metaItem("End Date", formatDate(ad.end_date))}
+                        ${metaItem("Last Shown", formatDate(ad.last_shown_date))}
+                        ${metaItem("Rank", ad.rank)}
+                        ${metaItem("Display Rank", ad.display_rank)}
+                        ${metaItem("CTR Rank", ad.ctr_rank)}
+                        ${metaItem("Impressions", ad.impression_count)}
+                        ${metaItem("Spend", ad.spend)}
+                        ${metaItem("Likes", ad.likes)}
+                        ${metaItem("Budget", ad.budget_level)}
+                        ${metaItem("Region", ad.region)}
+                        ${metaItem("Location", ad.advertiser_location)}
+                        ${metaItem("Landing Domain", ad.landing_domain)}
+                        ${metaItem("CTA", ad.call_to_action)}
+                        ${metaItem("Variants", ad.variant_count)}
+                        ${metaItem("Search Query", ad.query)}
+                    </div>
+
+                    <div class="links">
+                        ${ad.creative_url ? `<a href="${escapeHtml(ad.creative_url)}" target="_blank" rel="noopener noreferrer">Creative Link</a>` : ""}
+                        ${ad.landing_page ? `<a href="${escapeHtml(ad.landing_page)}" target="_blank" rel="noopener noreferrer">Landing Page</a>` : ""}
+                        ${ad.image_url ? `<a href="${escapeHtml(ad.image_url)}" target="_blank" rel="noopener noreferrer">Image Source</a>` : ""}
+                    </div>
+                </article>
+            `).join("");
+        }
+
+        function searchableText(ad) {
+            return [
+                ad.platform,
+                ad.headline,
+                ad.content,
+                ad.content_snippet,
+                ad.advertiser_name,
+                ad.brand_name,
+                ad.page_name,
+                ad.category,
+                ad.objective,
+                ad.ad_format,
+                ad.platforms,
+                ad.rank,
+                ad.display_rank,
+                ad.ctr_rank,
+                ad.region,
+                ad.landing_page,
+                ad.landing_domain,
+                ad.call_to_action,
+                ad.query
+            ].filter(Boolean).join(" ").toLowerCase();
+        }
+
+        function filterAds() {
+            const platform = document.getElementById("platformFilter").value;
+            const filtered = allAds.filter(ad => platform === "" || ad.platform === platform);
+            renderAds(filtered);
+        }
+
+        async function fetchAdsForQuery(query) {
+            const response = await fetch(`/ads?query=${encodeURIComponent(query)}`);
+            if (!response.ok) {
+                throw new Error(`Request failed with status ${response.status}`);
+            }
+            allAds = await response.json();
+            filterAds();
+            return allAds;
+        }
+
+        async function runSearch() {
+            const query = document.getElementById("search").value.trim();
+            if (!query) {
+                document.getElementById("status").textContent = "Enter a product or a Facebook page search like page: Nike.";
+                return;
+            }
+
+            currentQuery = query;
+            document.getElementById("status").textContent = `Loading saved ads for "${query}"...`;
+
+            try {
+                const cachedAds = await fetchAdsForQuery(query);
+                if (cachedAds.length) {
+                    document.getElementById("status").textContent = `Loaded ${cachedAds.length} saved ads for "${query}". Refreshing from Meta, TikTok, and Google...`;
+                } else {
+                    document.getElementById("status").textContent = `No saved ads yet for "${query}". Collecting fresh ads from Meta, TikTok, and Google...`;
+                }
+
+                const response = await fetch("/search", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        query,
+                        platforms: ["meta", "tiktok", "google"]
+                    })
+                });
+                if (!response.ok) {
+                    const payload = await response.json().catch(() => ({}));
+                    throw new Error(payload.detail || `Request failed with status ${response.status}`);
+                }
+                const payload = await response.json();
+                allAds = payload.ads || [];
+                filterAds();
+                document.getElementById("status").textContent = `Loaded ${payload.count} ads for "${query}" after live refresh.`;
+            } catch (error) {
+                document.getElementById("status").textContent = `Search failed: ${error.message || String(error)}`;
+                document.getElementById("summary").innerHTML = `<div class="chip">Failed to load ads</div>`;
+                document.getElementById("adsBody").innerHTML = `<div class="empty">${escapeHtml(error.message || String(error))}</div>`;
+            }
+        }
+
+        function exportPdf() {
+            const query = document.getElementById("search").value.trim() || currentQuery;
+            if (!query) {
+                document.getElementById("status").textContent = "Run a product search first, then export the PDF.";
+                return;
+            }
+            window.open(`/report?query=${encodeURIComponent(query)}`, "_blank");
+        }
+
+        document.getElementById("search").addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                runSearch();
+            }
+        });
+
+        document.getElementById("status").textContent = "Type a product, or use page: <Facebook page name>, then press Enter.";
+    </script>
+</body>
+</html>
